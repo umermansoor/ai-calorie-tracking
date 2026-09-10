@@ -4,6 +4,8 @@ Snap a photo of a meal (or describe it, scan a barcode, or search for it) and ge
 score and a predicted blood sugar curve. It's a React Native app (Expo SDK 57) that runs in the browser, on iOS
 and on Android. All the food intelligence comes from January AI's partner API (v1.2).
 
+Forkcast is an independent demo. It isn't affiliated with or endorsed by Cal AI or MyFitnessPal.
+
 > "Forkcast" is a placeholder name. Change `APP_NAME` in `src/constants/theme.ts` and `name` in `app.json`.
 
 ## Quick start
@@ -173,7 +175,15 @@ Every January call except `/credits` costs a credit:
 
 ## Notes
 
+- `demo/` has six free sample meal photos to try the app with, and a script that records a vertical demo video
+  for social media (`npm run demo:record`). See `demo/README.md`.
 - Photos and the profile live on the device (localStorage on the web).
 - On the web, the scanner waits for the user to turn the camera on. Desktop visitors can upload a photo or try
   January's sample photo instead.
 - Nutrition and glucose estimates are for demonstration and aren't medical advice.
+
+## License
+
+The code is under the MIT License ([`LICENSE`](../LICENSE)). The sample photos in `demo/sample-meals/` are from
+Pexels and covered by the [Pexels License](https://www.pexels.com/license/); `demo/sample-meals/CREDITS.md` names the
+photographers.

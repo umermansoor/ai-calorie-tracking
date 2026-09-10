@@ -39,6 +39,9 @@ yarn-error.*
 .keyotter-tmp/
 .claude/launch.json
 
+# recorded demo videos (npm run demo:record)
+demo/output/
+
 # typescript
 *.tsbuildinfo
 

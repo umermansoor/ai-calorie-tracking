@@ -40,6 +40,8 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "ffmpeg-static": "^5.3.0",
+    "playwright-core": "^1.63.0",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -51,7 +53,9 @@
     "proxy:keyotter": "node scripts/keyotter-proxy.mjs",
     "build:web": "expo export --platform web",
     "serve": "node server.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "demo:record": "node demo/record-demo.mjs",
+    "demo:music": "node demo/add-music.mjs"
   },
   "private": true
 }
