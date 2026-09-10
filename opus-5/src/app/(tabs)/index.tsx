@@ -2,9 +2,10 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Platform, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 import { GetApiKeyButton } from '@/components/api-key-button';
-import { Icon, MIcon } from '@/components/icons';
+import { Icon } from '@/components/icons';
 import { EXTRAS, MACROS, RingStatCard } from '@/components/macros';
 import { MealCard, PendingCard } from '@/components/meal-card';
 import { Ring } from '@/components/ring';
@@ -58,7 +59,11 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <View style={styles.brand}>
           <View style={styles.logo}>
-            <MIcon name="food-apple" size={18} color="#FFFFFF" />
+            {/* The app icon's mark: an open ring around a dot. */}
+            <Svg width={20} height={20} viewBox="0 0 24 24">
+              <Path d="M12 2.57A9.43 9.43 0 1 1 2.72 10.33" stroke="#FFFFFF" strokeWidth={3.14} strokeLinecap="round" fill="none" />
+              <Circle cx={12} cy={12} r={2.75} fill="#FFFFFF" />
+            </Svg>
           </View>
           <T style={styles.brandText}>{APP_NAME}</T>
         </View>
