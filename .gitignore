@@ -1,0 +1,16 @@
+# Never commit secrets. .env.example (no values) is the only env file that belongs in git.
+.env
+.env.*
+!.env.example
+
+# Dependencies and build output
+node_modules/
+dist/
+.expo/
+web-build/
+expo-env.d.ts
+
+# Local tooling
+.keyotter-tmp/
+.claude/launch.json
+.DS_Store

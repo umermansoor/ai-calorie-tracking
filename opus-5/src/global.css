@@ -1,0 +1,28 @@
+html,
+body {
+  height: 100%;
+  background: #e7e7eb;
+}
+
+body {
+  margin: 0;
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  /* App-like scrolling: keep scroll, hide the bars. */
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+}
+
+input,
+textarea {
+  font-family: inherit;
+  outline: none;
+}
