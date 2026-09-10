@@ -5,7 +5,8 @@ import { useEffect, useState } from 'react';
 // January recommends ~1,024 px on the shorter side; larger photos only add upload time and latency.
 const ANALYSIS_SHORT_SIDE = 1024;
 const MAX_LONG_SIDE = 2048;
-const THUMB_SHORT_SIDE = 480;
+// Sharp on 2–3× screens where the meal photo spans the width, still small enough to keep many on the device.
+const THUMB_SHORT_SIDE = 640;
 
 async function encodeJpeg(uri: string, width: number, height: number, shortSide: number, compress: number) {
   const scale = Math.min(1, shortSide / Math.min(width, height), MAX_LONG_SIDE / Math.max(width, height));
@@ -39,7 +40,7 @@ export async function prepareImage(uri: string, width?: number, height?: number)
 
 const imageKey = (id: string) => `forkcast/img/${id}`;
 const INDEX_KEY = 'forkcast/img-index';
-const MAX_IMAGES = 60;
+const MAX_IMAGES = 30;
 
 const cache = new Map<string, string | null>();
 const listeners = new Map<string, Set<(uri: string | null) => void>>();

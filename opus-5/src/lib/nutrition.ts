@@ -98,18 +98,24 @@ export function bmiCategory(value: number): { label: string; color: string } {
 
 /**
  * A 1–10 meal score like Cal AI's. January doesn't return one, so this is an app-side heuristic over
- * nutrient density: protein and fiber per 100 kcal help; sugar, saturated fat, sodium and very large
- * portions hurt. Uses added sugar when January provides it, otherwise discounts total sugar.
+ * nutrient density. Protein and fiber per 100 kcal help. Sugar and heavy loads of starchy (net) carbs hurt
+ * most, in line with the app's focus on blood sugar; saturated fat, sodium and very large portions also hurt.
+ * Uses added sugar when January provides it, otherwise discounts total sugar, since fruit and dairy sugars
+ * count for less.
  */
 export function healthScore(n: Nutrients): number | null {
   const kcal = num(n, 'calories');
   if (kcal <= 0) return null;
   const per100 = (x: number) => (x / kcal) * 100;
   const sugar = has(n, 'added_sugars') ? num(n, 'added_sugars') : num(n, 'total_sugars') * 0.6;
+  const netCarbs = has(n, 'net_carbohydrates')
+    ? num(n, 'net_carbohydrates')
+    : Math.max(0, num(n, 'carbohydrates') - num(n, 'fiber'));
   let s = 5.5;
   s += Math.min(per100(num(n, 'protein')) * 0.45, 2.5);
   s += Math.min(per100(num(n, 'fiber')) * 0.9, 2);
-  s -= Math.min(per100(sugar) * 0.35, 3.5);
+  s -= Math.min(per100(sugar) * 0.5, 3.5);
+  s -= Math.min(Math.max(per100(netCarbs) - 10, 0) * 0.15, 1.5);
   s -= Math.min(per100(num(n, 'saturated_fat')) * 0.6, 2);
   s -= Math.min(per100(num(n, 'sodium')) / 150, 1.5);
   s -= Math.min(Math.max(kcal - 700, 0) / 200, 1.5);
