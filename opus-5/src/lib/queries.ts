@@ -3,7 +3,7 @@ import { keepPreviousData, QueryClient, useQuery } from '@tanstack/react-query';
 import { addDays, timeZone, todayKey } from '@/lib/dates';
 import { copyImage, removeImage } from '@/lib/images';
 import { january } from '@/lib/january/client';
-import { logToSelections } from '@/lib/january/mapping';
+import { logToSelections, type Portion, portionFixes } from '@/lib/january/mapping';
 import type { CreateFoodLogRequest, FoodLog, UpdateFoodLogRequest } from '@/lib/january/types';
 import { DIET_PREFERENCES, glucoseProfile, type Profile } from '@/lib/nutrition';
 import { type MealMeta, useApp } from '@/lib/store';
@@ -66,17 +66,35 @@ export function useLog(id: string | undefined) {
   };
 }
 
-export async function createLog(body: CreateFoodLogRequest, meta: MealMeta): Promise<FoodLog> {
-  const { endUserId, setMeta } = useApp.getState();
-  const log = await january.createFoodLog(endUserId, body);
-  if (log.id) setMeta(log.id, meta);
+/** Keeps a log January returned: the app's metadata for it, and the cached history. */
+export function saveLog(log: FoodLog, meta: MealMeta) {
+  if (log.id) useApp.getState().setMeta(log.id, meta);
   upsertCachedLog(log);
+}
+
+export async function createLog(body: CreateFoodLogRequest, meta: MealMeta): Promise<FoodLog> {
+  const log = await january.createFoodLog(useApp.getState().endUserId, body);
+  saveLog(log, meta);
   return log;
 }
 
-export async function updateLog(id: string, body: UpdateFoodLogRequest): Promise<FoodLog> {
-  const log = await january.updateFoodLog(useApp.getState().endUserId, id, body);
-  upsertCachedLog(log);
+/**
+ * Brings a log saved from an analysis in line with the analyzed portions. Catalog serving sizes only show up in
+ * the saved log, so a quantity that assumed a one-unit serving is corrected with one PATCH (see analysisToSelections).
+ */
+export async function fixPortions(log: FoodLog, portions: Portion[]): Promise<FoodLog> {
+  const foods = portionFixes(log, portions);
+  return foods && log.id ? january.updateFoodLog(useApp.getState().endUserId, log.id, { foods }) : log;
+}
+
+/** Updates a log. Pass `portions` when the foods come from an analysis, so they get the same fix. */
+export async function updateLog(id: string, body: UpdateFoodLogRequest, portions?: Portion[]): Promise<FoodLog> {
+  let log = await january.updateFoodLog(useApp.getState().endUserId, id, body);
+  try {
+    if (portions) log = await fixPortions(log, portions);
+  } finally {
+    upsertCachedLog(log); // if the fix failed, this still shows what January saved
+  }
   return log;
 }
 

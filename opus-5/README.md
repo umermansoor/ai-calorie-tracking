@@ -149,9 +149,12 @@ server.mjs                       Express server for self-hosting the web export
 
 Things worth knowing about January's API, found while building this:
 
-- **Portions come back two ways.** Text analyses give `selected_quantity` in serving units ("2 cups" → 2). Image
-  and corrected analyses leave it null, and `quantity` is the number of servings. The app normalizes both before
-  logging (`src/lib/january/mapping.ts`).
+- **Portions come back two ways, and neither is a servings count.** A detection's serving gives the amount eaten
+  in its unit: text analyses in `selected_quantity` ("2 cups" → 2, with `quantity` holding the serving's size),
+  image and corrected analyses in `quantity` ("40 g" → 40). A food log's `quantity` counts catalog servings, and a
+  catalog serving can be more than one unit ("100 g", "2 cups shredded"). Image analyses don't say how big it is,
+  but the saved log does (`serving.quantity`), so the app corrects any quantity that's off with one PATCH right
+  after saving (`src/lib/january/mapping.ts`). The amount eaten is `quantity` × `serving.quantity`.
 - **Show the log, not the analysis.** A logged food's nutrients come from January's catalog serving, so the app
   always displays the saved log. "Fix results" sends the current log back as an analysis, so corrections apply to
   what the user actually sees.
@@ -165,9 +168,9 @@ Every January call except `/credits` costs a credit:
 | Action | Credits |
 | --- | --- |
 | Open the app (one request covers 60 days of history) | 1 |
-| Scan, upload or describe a meal (analysis + saving the log) | 2 |
+| Scan, upload or describe a meal (analysis + saving the log) | 2, or 3 if the portions need correcting (see above) |
 | Open a meal for the first time (glucose prediction, then cached) | 1 |
-| Fix results | 2 |
+| Fix results | 2, or 3 if the portions need correcting |
 | Change servings or an ingredient | 1 |
 | Search, or open a food | 1 each |
 | Barcode lookup | 2 |

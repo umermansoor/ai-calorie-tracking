@@ -48,6 +48,7 @@ export type Food = {
 
 export type DetectionServing = {
   id: string | null;
+  /** How much of `unit` this serving is: on image and corrected analyses, the amount eaten ("40 g" → 40). */
   quantity: number | null;
   unit: string | null;
   /** Parsed from text ("2 cups" → 2); null on image and corrected analyses. */
@@ -74,6 +75,7 @@ export type FoodSelection = { food_id: string; serving_id: string; quantity: num
 
 export type ServingDetails = {
   id: string | null;
+  /** The serving's size in `unit` ("100 g" → 100), so not always 1. */
   quantity: number | null;
   unit: string | null;
   weight_grams: number | null;

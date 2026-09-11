@@ -11,7 +11,7 @@
  *
  * Options: --url, --camera <image>, --upload <image>, --out <file.mp4>, --chrome <path>, --headed,
  * --pace <n> (e.g. 1.3 holds every caption and screen 30% longer).
- * Each take makes real January calls (about 7 credits) under a new demo end user.
+ * Each take makes real January calls (about 7 to 9 credits) under a new demo end user.
  */
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';

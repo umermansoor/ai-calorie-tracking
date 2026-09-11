@@ -21,11 +21,13 @@ import {
   capitalize,
   formatQty,
   logAsAnalysis,
+  loggedAmount,
   logToSelections,
   logTotals,
   num,
   scaleNutrients,
   servingLabel,
+  servingSizes,
 } from '@/lib/january/mapping';
 import type { FoodLog, FoodSelection, LoggedFood } from '@/lib/january/types';
 import { goBack } from '@/lib/nav';
@@ -237,7 +239,7 @@ export default function MealScreen() {
                     {capitalize(food.name ?? 'Food')}
                   </T>
                   <T variant="caption" numberOfLines={1}>
-                    {servingLabel(food.quantity, food.serving.unit)}
+                    {servingLabel(loggedAmount(food), food.serving.unit)}
                     {food.brand_name ? ` · ${food.brand_name}` : ''}
                   </T>
                 </View>
@@ -308,10 +310,10 @@ function FixSheet({ visible, onClose, log }: { visible: boolean; onClose: () => 
     setBusy(true);
     try {
       const corrected = await january.correctAnalysis(logAsAnalysis(log), instruction);
-      const { selections, unmatched } = analysisToSelections(corrected);
+      const { selections, portions, unmatched } = analysisToSelections(corrected, servingSizes(log));
       if (!selections.length) throw new Error('That correction left no foods. Try wording it differently.');
       const name = corrected.meal_name?.trim();
-      await updateLog(log.id, { foods: selections, name: name ? name.slice(0, 256) : undefined });
+      await updateLog(log.id, { foods: selections, name: name ? name.slice(0, 256) : undefined }, portions);
       patchMeta(log.id, { multiplier: 1, unmatched: unmatched.length ? unmatched : undefined });
       showToast('Meal updated');
       setText('');
@@ -377,6 +379,8 @@ function IngredientEditor({
   const original = food.quantity ?? 1;
   const [quantity, setQuantity] = useState(original);
   const perServing = num(food.nutrients, 'calories') / (original || 1);
+  // The stepper counts servings but shows the amount, so 0.4 of a 100 g serving reads 40 (g).
+  const size = food.serving.quantity || 1;
   return (
     <View style={styles.editor}>
       <View style={styles.rowBetween}>
@@ -384,7 +388,14 @@ function IngredientEditor({
           <T variant="caption">Amount ({food.serving.unit ?? 'serving'})</T>
           <T variant="heading">{Math.round(perServing * quantity)} cal</T>
         </View>
-        <Stepper value={quantity} onChange={setQuantity} step={0.25} min={0.25} max={50} format={formatQty} />
+        <Stepper
+          value={quantity}
+          onChange={setQuantity}
+          step={0.25}
+          min={0.25}
+          max={50}
+          format={(q) => formatQty(q * size)}
+        />
       </View>
       <Button title="Save" disabled={quantity === original} onPress={() => onSave(quantity)} />
       <Button variant="danger" icon="trash-outline" title="Remove ingredient" onPress={onRemove} />

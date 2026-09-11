@@ -1,10 +1,10 @@
 import type {
-  Detection,
   Food,
   FoodAnalysisResult,
   FoodLog,
   FoodSelection,
   FoodServing,
+  LoggedFood,
   NutrientKey,
   Nutrients,
 } from './types';
@@ -38,36 +38,51 @@ export const logTotals = (log: FoodLog) => sumNutrients(log.foods.map((f) => f.n
 const round3 = (x: number) => Math.round(x * 1000) / 1000;
 const CATALOG_ID = /^\d{1,16}$/;
 
-/**
- * How many of a detection's serving were eaten.
- *
- * January reports this two ways (checked against `total_nutrients`):
- * - text analyses set `selected_quantity` in units of the serving ("2 cups" → 2), so divide by the serving size;
- * - image and corrected analyses leave it null, and `quantity` is already the number of servings.
- */
-export function detectionQuantity(d: Detection): number {
-  const serving = d.food.servings.find((s) => s.id) ?? d.food.servings[0];
-  if (!serving) return 1;
-  const q =
-    serving.selected_quantity != null
-      ? serving.selected_quantity / (serving.quantity || 1)
-      : (serving.quantity ?? 1);
-  return q > 0 ? round3(Math.min(q, 10000)) : 1;
-}
+/** A number of catalog servings January accepts as a logged quantity (above 0, at most 10,000). */
+const servingsCount = (n: number) => (n > 0 ? Math.max(round3(Math.min(n, 10000)), 0.001) : 1);
 
-/** Turns an analysis into loggable selections; detections January couldn't match to its catalog are returned by name. */
-export function analysisToSelections(analysis: FoodAnalysisResult) {
+const sameUnit = (a: string | null, b: string | null) =>
+  (a ?? '').trim().toLowerCase() === (b ?? '').trim().toLowerCase();
+
+/** How much of a detected food was eaten, in the unit of the catalog serving it was matched to ("40 g" is 40). */
+export type Portion = { food_id: string; serving_id: string; amount: number | null; unit: string | null };
+
+/** How much of a logged food was eaten, in its serving's unit: servings eaten × the serving's size. */
+export const loggedAmount = (f: LoggedFood) => (f.quantity ?? 1) * (f.serving.quantity ?? 1);
+
+/** Serving id → that serving's size in its unit ("100 g" → 100), for the foods in a log. */
+export const servingSizes = (log: FoodLog) =>
+  new Map(
+    log.foods.flatMap((f) => (f.serving.id && f.serving.quantity ? [[f.serving.id, f.serving.quantity] as const] : [])),
+  );
+
+/**
+ * Turns an analysis into loggable selections; detections January couldn't match to its catalog are returned by name.
+ *
+ * A detection's serving says how much was eaten, in the serving's unit: image and corrected analyses in `quantity`
+ * ("40 g" → 40), text analyses in `selected_quantity` ("2 cups" → 2, with `quantity` holding the serving's size).
+ * A food log counts catalog servings instead, and a catalog serving can be more than one unit ("100 g", "2 cups
+ * shredded"). Image analyses don't say how big it is, so unless `sizes` knows (see `servingSizes`), it's taken to
+ * be one unit, and `portionFixes` corrects the quantity once the saved log shows the real size.
+ */
+export function analysisToSelections(analysis: FoodAnalysisResult, sizes?: ReadonlyMap<string, number>) {
   const selections: FoodSelection[] = [];
+  const portions: Portion[] = [];
   const unmatched: string[] = [];
   for (const d of analysis.detections) {
     const serving = d.food.servings.find((s) => s.id && CATALOG_ID.test(s.id));
     if (d.food.id && CATALOG_ID.test(d.food.id) && serving?.id) {
-      selections.push({ food_id: d.food.id, serving_id: serving.id, quantity: detectionQuantity(d) });
+      const fromText = serving.selected_quantity != null;
+      const amount = fromText ? serving.selected_quantity : serving.quantity;
+      const size = sizes?.get(serving.id) ?? (fromText ? serving.quantity : null) ?? 1;
+      const quantity = amount != null ? servingsCount(amount / (size || 1)) : 1;
+      selections.push({ food_id: d.food.id, serving_id: serving.id, quantity });
+      portions.push({ food_id: d.food.id, serving_id: serving.id, amount, unit: serving.unit });
     } else if (d.food.name) {
       unmatched.push(d.food.name);
     }
   }
-  return { selections, unmatched };
+  return { selections, portions, unmatched };
 }
 
 export const logToSelections = (log: FoodLog): FoodSelection[] =>
@@ -78,9 +93,31 @@ export const logToSelections = (log: FoodLog): FoodSelection[] =>
   );
 
 /**
+ * Checks a log saved from `analysisToSelections` against its portions, now that the log shows each catalog
+ * serving's size. Returns every food, with corrected quantities, when any is off (for one PATCH), or null when
+ * the log already matches.
+ */
+export function portionFixes(log: FoodLog, portions: Portion[]): FoodSelection[] | null {
+  const foods = logToSelections(log);
+  if (foods.length !== log.foods.length || foods.length !== portions.length) return null;
+  let changed = false;
+  const fixed = foods.map((f, i) => {
+    const p = portions[i];
+    const serving = log.foods[i].serving;
+    if (p.amount == null || !serving.quantity || f.food_id !== p.food_id || f.serving_id !== p.serving_id) return f;
+    if (!sameUnit(serving.unit, p.unit)) return f;
+    const quantity = servingsCount(p.amount / serving.quantity);
+    if (Math.abs(quantity - f.quantity) < 0.0005) return f;
+    changed = true;
+    return { ...f, quantity };
+  });
+  return changed ? fixed : null;
+}
+
+/**
  * Rebuilds what's currently logged as an analysis, so "Fix results" corrects the meal as the user sees it
- * (after serving or ingredient edits). Quantities are servings counts with portion-level nutrients, the
- * same convention corrections return.
+ * (after serving or ingredient edits). Corrections read a serving's quantity as the amount eaten in its unit,
+ * and a detection's nutrients as that whole amount's.
  */
 export function logAsAnalysis(log: FoodLog): FoodAnalysisResult {
   return {
@@ -93,7 +130,7 @@ export function logAsAnalysis(log: FoodLog): FoodAnalysisResult {
         name: f.name,
         brand_name: f.brand_name,
         nutrients: f.nutrients,
-        servings: [{ id: f.serving.id, quantity: f.quantity, unit: f.serving.unit, selected_quantity: null }],
+        servings: [{ id: f.serving.id, quantity: loggedAmount(f), unit: f.serving.unit, selected_quantity: null }],
       },
     })),
   };

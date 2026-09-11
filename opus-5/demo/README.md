@@ -44,7 +44,7 @@ thumbnail. `demo/output/` is gitignored.
 - Options: `--url` (default `http://localhost:3000`), `--camera <image>`, `--upload <image>`, `--out <file.mp4>`,
   `--chrome <path to Chrome>`, `--headed` to watch the browser while it records, and `--pace 1.3` to hold every
   caption and screen 30% longer.
-- Each take makes real January calls (about 7 credits) under a fresh demo end user.
+- Each take makes real January calls (about 7 to 9 credits) under a fresh demo end user.
 - It needs Google Chrome. ffmpeg comes from the `ffmpeg-static` dev dependency; if its binary is missing (npm can
   block install scripts), allow that package's install script and reinstall, or set `FFMPEG` to your own ffmpeg.
 

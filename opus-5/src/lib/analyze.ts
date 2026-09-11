@@ -4,15 +4,16 @@ import { eatenAtFor } from '@/lib/dates';
 import { moveImage, prepareImage, removeImage, saveImage } from '@/lib/images';
 import { errorMessage, isApiKeyError, january } from '@/lib/january/client';
 import { analysisToSelections, mealName } from '@/lib/january/mapping';
-import type { FoodAnalysisResult } from '@/lib/january/types';
-import { createLog } from '@/lib/queries';
+import type { FoodAnalysisResult, FoodLog } from '@/lib/january/types';
+import { deleteLog, fixPortions, saveLog } from '@/lib/queries';
 import { type MealSource, useApp } from '@/lib/store';
 
 export type AnalysisInput = { kind: 'image'; image: string } | { kind: 'text'; text: string };
 
 // Inputs stay in memory rather than in persisted state, so a failed analysis can be retried without
-// picking the photo again. The result is kept too: if only the save failed, a retry doesn't pay twice.
-const inputs = new Map<string, { input: AnalysisInput; result?: FoodAnalysisResult }>();
+// picking the photo again. The result is kept too: if only the save failed, a retry doesn't pay twice. So is
+// the saved log: if only its portion fix failed, a retry finishes that log instead of logging the meal again.
+const inputs = new Map<string, { input: AnalysisInput; result?: FoodAnalysisResult; saved?: FoodLog }>();
 let counter = 0;
 
 /**
@@ -55,7 +56,7 @@ async function run(id: string) {
       entry.result = analysis;
     }
 
-    const { selections, unmatched } = analysisToSelections(analysis);
+    const { selections, portions, unmatched } = analysisToSelections(analysis);
     if (!selections.length) {
       entry.result = undefined; // a retry should analyze again
       throw new Error(
@@ -67,10 +68,14 @@ async function run(id: string) {
 
     updatePending(id, { status: 'saving', error: undefined });
     const fallbackName = entry.input.kind === 'text' ? entry.input.text : 'Meal';
-    const log = await createLog(
-      { foods: selections, eaten_at: eatenAtFor(item.day), name: mealName(analysis, fallbackName).slice(0, 256) },
-      { source: item.source, multiplier: 1, unmatched: unmatched.length ? unmatched : undefined },
-    );
+    entry.saved ??= await january.createFoodLog(useApp.getState().endUserId, {
+      foods: selections,
+      eaten_at: eatenAtFor(item.day),
+      name: mealName(analysis, fallbackName).slice(0, 256),
+    });
+    // The saved log shows each catalog serving's size, so any quantity that assumed one unit is fixed now.
+    const log = await fixPortions(entry.saved, portions);
+    saveLog(log, { source: item.source, multiplier: 1, unmatched: unmatched.length ? unmatched : undefined });
     if (log.id) await moveImage(id, log.id);
     inputs.delete(id);
     removePending(id);
@@ -98,7 +103,10 @@ export async function analyzePhoto(uri: string, source: MealSource, width?: numb
 export const retryAnalysis = (id: string) => void run(id);
 
 export async function dismissAnalysis(id: string) {
+  const saved = inputs.get(id)?.saved;
   inputs.delete(id);
   useApp.getState().removePending(id);
   await removeImage(id);
+  // Saved, but its portions couldn't be fixed: don't leave the wrong amounts in the log.
+  if (saved?.id) await deleteLog(saved.id).catch(() => undefined);
 }
