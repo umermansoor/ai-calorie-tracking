@@ -224,20 +224,20 @@ async function main() {
       everyNthFrame: 1,
     });
     speed(1);
-    await hold(3000);
+    await hold(2600);
 
-    // 1. Point the (fake) camera at the first meal and snap it.
+    // 1. Point the (fake) camera at the first meal and snap it. Keep this brisk: the photo scan should show up
+    //    within the first few seconds, before viewers scroll past.
     await caption(page, ...CAPTIONS.snap);
-    await hold(700);
-    await tap(page, page.locator('[aria-label="Add food"]').filter({ visible: true }), 1300);
-    await tap(page, page.getByText('Scan food', { exact: true }).first(), 400);
+    await tap(page, page.locator('[aria-label="Add food"]').filter({ visible: true }), 700);
+    await tap(page, page.getByText('Scan food', { exact: true }).first(), 300);
     await page.waitForFunction(
       () => [...document.querySelectorAll('video')].some((v) => v.readyState >= 2 && v.videoWidth > 0),
       null,
       { timeout: 20000 },
     );
-    await hold(1700);
-    await tap(page, page.locator('[aria-label="Take photo"]'), 300);
+    await hold(1500);
+    await tap(page, page.locator('[aria-label="Take photo"]'), 200);
     await waitForText(page, /Analyzing food|Saving to your log/, 20000);
     await caption(page, ...CAPTIONS.analyze);
     await fastForward(() => waitForMeals(page, 1));
